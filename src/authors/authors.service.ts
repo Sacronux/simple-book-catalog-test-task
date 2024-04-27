@@ -1,12 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
 import { Author, Prisma } from '@prisma/client';
 import { GraphQLResolveInfo } from 'graphql';
 import { graphqlInfoToPrismaSelect } from 'src/helpers/dataTransformer';
+import { AuthorsDAL } from './authors.dal';
+import * as DataLoader from 'dataloader';
+
+type AuthorLoaderKey = {
+  id: number;
+  select?: Prisma.AuthorSelect;
+};
 
 @Injectable()
 export class AuthorsService {
-  constructor(private prisma: PrismaService) {}
+  private authorByIdLoader: DataLoader<AuthorLoaderKey, Author | null>;
+
+  constructor(private authorsDAL: AuthorsDAL) {
+    this.authorByIdLoader = new DataLoader<AuthorLoaderKey, Author | null>(
+      async (keys) => {
+        const ids = keys.map((key) => key.id);
+        const results = await this.authorsDAL.findAuthorByIds(
+          ids,
+          keys[0].select,
+        );
+        const resultDict = new Map(
+          ids.map((id, index) => [id, results[index] || null]),
+        );
+        return keys.map((key) => resultDict.get(key.id));
+      },
+      {
+        cacheKeyFn: (key) => key,
+      },
+    );
+  }
 
   async getAuthorById(
     id: number,
@@ -16,14 +41,7 @@ export class AuthorsService {
       ? graphqlInfoToPrismaSelect(info)
       : undefined;
 
-    const author = await this.prisma.author.findUnique({
-      where: { id },
-      select,
-    });
-
-    if (author) {
-      author.books = author.books || [];
-    }
+    const author = await this.authorByIdLoader.load({ id, select });
 
     return author;
   }
@@ -36,10 +54,7 @@ export class AuthorsService {
       ? graphqlInfoToPrismaSelect(info)
       : undefined;
 
-    const newAuthor = await this.prisma.author.create({
-      data,
-      select,
-    });
+    const newAuthor = await this.authorsDAL.createAuthor(data, select);
 
     newAuthor.books = newAuthor.books || [];
     return newAuthor;
@@ -59,32 +74,16 @@ export class AuthorsService {
     // I'm using raw sql here because prisma is not supporting _count in where for relation fields
     // it's known issue - https://github.com/prisma/prisma/issues/8413
     if (filter?.maxNumberOfBooks && filter?.maxNumberOfBooks) {
-      const authorsWithBooks: Author[] = await this.prisma.$queryRaw`
-    SELECT a.id, COUNT(b.id) AS bookCount
-    FROM \`Author\` a
-    JOIN \`_BookAuthors\` ba ON a.id = ba.A
-    JOIN \`Book\` b ON ba.B = b.id
-    GROUP BY a.id, a.firstName, a.lastName
-    HAVING bookCount BETWEEN ${filter.minNumberOfBooks} AND ${filter.maxNumberOfBooks}
-  `;
-
-      const authorsIds = authorsWithBooks.map(({ id }) => id);
-
-      const authors = await this.prisma.author.findMany({
-        where: {
-          id: {
-            in: authorsIds,
-          },
-        },
+      const authors = await this.authorsDAL.findAuthorsWithBookCount(
+        filter.minNumberOfBooks,
+        filter.maxNumberOfBooks,
         select,
-      });
+      );
 
       return authors;
     }
 
-    const authors = await this.prisma.author.findMany({
-      select,
-    });
+    const authors = await this.authorsDAL.findAllAuthors(select);
 
     return authors.map((author) => {
       if (!author.books) {
@@ -95,56 +94,11 @@ export class AuthorsService {
   }
 
   async deleteAuthor(id: number): Promise<number> {
-    const deleteAuthor = await this.prisma.author.delete({
-      where: { id },
-    });
+    const deleteAuthor = await this.authorsDAL.deleteAuthor(id);
     return deleteAuthor ? 1 : 0;
   }
 
   async deleteAuthorWithBooks(id: number): Promise<number> {
-    const author = await this.prisma.author.findUnique({
-      where: { id },
-      include: {
-        books: {
-          include: {
-            authors: true,
-          },
-        },
-      },
-    });
-
-    if (!author) return 0;
-
-    const booksToDelete = author.books.filter(
-      (book) => book?.authors?.length === 1,
-    );
-    const booksToUpdate = author.books.filter(
-      (book) => book?.authors?.length > 1,
-    );
-
-    await this.prisma.book.deleteMany({
-      where: {
-        id: {
-          in: booksToDelete.map((book) => book.id),
-        },
-      },
-    });
-
-    for (const book of booksToUpdate) {
-      await this.prisma.book.update({
-        where: { id: book.id },
-        data: {
-          authors: {
-            disconnect: { id: author.id },
-          },
-        },
-      });
-    }
-
-    await this.prisma.author.delete({
-      where: { id },
-    });
-
-    return 1 + booksToDelete.length + booksToUpdate.length;
+    return await this.authorsDAL.deleteAuthorWithBooks(id);
   }
 }

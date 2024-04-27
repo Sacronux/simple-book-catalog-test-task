@@ -46,7 +46,6 @@ export class ComplexityPlugin implements ApolloServerPlugin, OnModuleInit {
             simpleEstimator({ defaultComplexity: 1 }),
           ],
         });
-        console.log({ complexity });
         if (complexity > maxComplexity) {
           throw new GraphQLError(
             `Query is too complex: ${complexity}. Maximum allowed complexity: ${maxComplexity}`,
