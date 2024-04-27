@@ -1,3 +1,17 @@
+To start locally run: 
+
+```bash
+docker-compose up
+```
+
+To stop run (data in db will be saved in volume, in case if volume wasn't deleted): 
+
+```bash
+docker-compose down
+```
+
+Queries:
+
 query GetAuthor {
   getAuthor(id: 1) {
     id

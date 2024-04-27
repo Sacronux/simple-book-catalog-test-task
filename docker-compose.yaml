@@ -2,6 +2,7 @@ version: '3.8'
 services:
   db:
     image: mysql:8.0
+    container_name: mysql-database
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_USER: user
@@ -13,3 +14,22 @@ services:
     volumes:
       - ./mysql-data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: mysql://user:password@db/nestapp
+    depends_on:
+      - db
+    command: >
+      sh -c "
+      npx prisma migrate deploy &&
+      npx prisma generate &&
+      npm run start:dev
+      "
+    restart: always
+
+volumes:
+  db-data:
+  
