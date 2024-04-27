@@ -8,7 +8,6 @@ import { ComplexityPlugin } from './plugins/queryComplexityPlugin';
 
 @Module({
   imports: [
-    // Configure GraphQL module asynchronously
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       useFactory: async () => ({

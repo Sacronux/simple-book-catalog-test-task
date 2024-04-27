@@ -39,18 +39,14 @@ export class BooksService {
 
     this.booksByTitleLoader = new DataLoader<TitleBatchParams, Book[]>(
       async (params) => {
-        // Map to store books by title for efficient lookup
         const booksByTitleMap = new Map<string, Book[]>();
 
-        // Loop through each parameter to handle each title query individually
         for (const param of params) {
-          // Fetch books by title using the provided DAL method
           const books = await this.booksDAL.findBooksByTitle(
             param.title,
             param.select,
           );
 
-          // If the title is already in the map (due to DataLoader batching), merge the results
           if (booksByTitleMap.has(param.title)) {
             booksByTitleMap.get(param.title).push(...books);
           } else {
@@ -58,7 +54,6 @@ export class BooksService {
           }
         }
 
-        // Return the results in the order they were requested
         return params.map((param) => booksByTitleMap.get(param.title) || []);
       },
       {

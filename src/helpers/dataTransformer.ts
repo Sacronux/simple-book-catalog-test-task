@@ -19,11 +19,10 @@ function graphqlInfoToPrismaSelect<T>(info: GraphQLResolveInfo): T {
  */
 function buildSelectObject(fields: any): any {
   return Object.keys(fields).reduce((select, key) => {
-    // Check if the field has nested sub-fields
     if (Object.keys(fields[key]).length > 0) {
       select[key] = { select: buildSelectObject(fields[key]) };
     } else {
-      select[key] = true; // Select this field directly
+      select[key] = true;
     }
     return select;
   }, {});

@@ -1,6 +1,6 @@
 import { Resolver, Query, Mutation, Args, Int, Info } from '@nestjs/graphql';
 import { BooksService } from './books.service';
-import { BookModel, BookInput } from './books.model'; // Assuming these types are defined
+import { BookModel, BookInput } from './books.model';
 import { GraphQLResolveInfo } from 'graphql';
 
 @Resolver(() => BookModel)
