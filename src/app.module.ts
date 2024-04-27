@@ -2,19 +2,25 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
-import { GraphqlResolver } from './graphql/graphql.resolver';
-import { GraphqlService } from './graphql/graphql.service';
+import { AuthorsModule } from './authors/authors.module';
+import { BooksModule } from './books/books.module';
+import { ComplexityPlugin } from './plugins/queryComplexityPlugin';
 
 @Module({
   imports: [
-    GraphQLModule.forRoot<ApolloDriverConfig>({
+    // Configure GraphQL module asynchronously
+    GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-      sortSchema: true,
-      debug: true,
-      playground: true, // Если вы используете Apollo Server 3, замените на Apollo Sandbox.
+      useFactory: async () => ({
+        autoSchemaFile: join(process.cwd(), 'src/schema.graphql'),
+        sortSchema: true,
+        playground: true,
+        path: '/api/graphql',
+      }),
     }),
+    AuthorsModule,
+    BooksModule,
   ],
-  providers: [GraphqlResolver, GraphqlService],
+  providers: [ComplexityPlugin],
 })
 export class AppModule {}

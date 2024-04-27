@@ -1,33 +1,125 @@
-# Простой каталог книг
+query GetAuthor {
+  getAuthor(id: 1) {
+    id
+    firstName
+    lastName
+    books {
+      id
+      title
+    }
+  }
+}
 
-Стек технологий:
+query GetAllAuthors {
+  getAuthors {
+    id
+    firstName
+    lastName
+    books {
+      id
+      title
+    }
+  }
+}
 
-* Node.js
-* TypeScript
-* Nest.js
-* Prisma.io
-* MySQL or PostgresQL (на ваш выбор)
-* GraphQL with code first approach
+query GetAuthorsByBookRange {
+  getAuthors(minNumberOfBooks: 3, maxNumberOfBooks: 6) {
+    id
+    firstName
+    lastName
+    books {
+      id
+      title
+    }
+  }
+}
 
-GraphQL схему для каталога смотри в файле schema.graphql.
+mutation CreateAuthor {
+  createAuthor(author: {
+    firstName: "Leo",
+    lastName: "Tolstoy"
+  }) {
+    id
+    firstName
+    lastName
+    books {
+      id
+      title
+    }
+  }
+}
 
-Решение предоставить как ссылку на GitHub репозиторий.
+mutation AddAuthorToBook {
+  addAuthor(bookId: 1, authorId: 2) {
+    id
+    title
+    authors {
+      id
+      firstName
+      lastName
+    }
+  }
+}
 
-В репозитории обязательно должен быть docker-compose.yml файл который:
+mutation DeleteAuthor {
+  deleteAuthor(id: 1)
+}
 
-* Дает доступ к node.js приложению через порт 5000.
-* Дает доступ к mysql через порт 6000.
-* Сохраняет mysql данные в volume ./mysql-data.
+mutation DeleteAuthorWithBooks {
+  deleteAuthorWithBooks(id: 2)
+}
 
-Приложение должно разворачиваться на локалке двумя командами:
+query GetBook {
+  getBook(id: 1) {
+    id
+    title
+    authors {
+      id
+      firstName
+      lastName
+    }
+  }
+}
 
-```bash
-npm install
-docker-compose up
-```
+query GetBooksByTitle {
+  getBooks(title: "Example Title") {
+    id
+    title
+    authors {
+      id
+      firstName
+      lastName
+    }
+  }
+}
 
-После docker-compose up в браузере по адресу http://localhost:5000/api/graphql должен быть доступен работоспособный GraphQL Playground.
+mutation CreateBook {
+  createBook(book: {
+    title: "New Book",
+    authorIds: [1, 2]  # Assuming these authors exist
+  }) {
+    id
+    title
+    authors {
+      id
+      firstName
+      lastName
+    }
+  }
+}
 
-После docker-compose down данные в базе не должны пропасть.
+mutation DeleteBook {
+  deleteBook(id: 1)
+}
 
-Приветствуются (но не обязательны) тесты, ограничение сложности GraphQL запросов (query complexity) и решение проблемы N+1 SQL запроса.
+mutation AddAuthorToBook {
+  addAuthorToBook(bookId: 1, authorId: 2) {
+    id
+    title
+    authors {
+      id
+      firstName
+      lastName
+    }
+  }
+}
