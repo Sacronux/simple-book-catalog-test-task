@@ -20,6 +20,14 @@ export class AuthorsDAL {
     });
   }
 
+  async findAuthorByIdsBatch(ids: number[], select?: Prisma.AuthorSelect) {
+    console.log({ select });
+    return this.prisma.author.findMany({
+      where: { id: { in: ids } },
+      select,
+    });
+  }
+
   async createAuthor(
     data: Prisma.AuthorCreateInput,
     select?: Prisma.AuthorSelect,

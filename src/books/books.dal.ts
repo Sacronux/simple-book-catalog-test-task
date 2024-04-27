@@ -69,4 +69,33 @@ export class BooksDAL {
       where: { id },
     });
   }
+
+  async getBooksByAuthorId(authorId: number, select: Prisma.BookSelect) {
+    return this.prisma.book.findMany({
+      where: {
+        authors: {
+          every: {
+            id: authorId,
+          },
+        },
+      },
+      select,
+    });
+  }
+
+  async getAllBooksByAuthorIds(authorIds: number[], select: Prisma.BookSelect) {
+    console.log({ select });
+    return this.prisma.book.findMany({
+      where: {
+        authors: {
+          every: {
+            id: {
+              in: authorIds,
+            },
+          },
+        },
+      },
+      select,
+    });
+  }
 }

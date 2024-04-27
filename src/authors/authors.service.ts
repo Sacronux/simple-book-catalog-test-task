@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Author, Prisma } from '@prisma/client';
+import { Author, Book, Prisma } from '@prisma/client';
 import { GraphQLResolveInfo } from 'graphql';
 import { graphqlInfoToPrismaSelect } from 'src/helpers/dataTransformer';
 import { AuthorsDAL } from './authors.dal';
@@ -12,25 +12,33 @@ type AuthorLoaderKey = {
 
 @Injectable()
 export class AuthorsService {
-  private authorByIdLoader: DataLoader<AuthorLoaderKey, Author | null>;
+  constructor(private authorsDAL: AuthorsDAL) {}
 
-  constructor(private authorsDAL: AuthorsDAL) {
-    this.authorByIdLoader = new DataLoader<AuthorLoaderKey, Author | null>(
-      async (keys) => {
-        const ids = keys.map((key) => key.id);
-        const results = await this.authorsDAL.findAuthorByIds(
-          ids,
-          keys[0].select,
-        );
-        const resultDict = new Map(
-          ids.map((id, index) => [id, results[index] || null]),
-        );
-        return keys.map((key) => resultDict.get(key.id));
-      },
-      {
-        cacheKeyFn: (key) => key,
-      },
-    );
+  async getAllAuthorsByAuthorIds(ids: number[], info: GraphQLResolveInfo) {
+    const select: Prisma.AuthorSelect = info
+      ? graphqlInfoToPrismaSelect(info)
+      : undefined;
+    const authors = await this.authorsDAL.findAuthorByIdsBatch(ids, select);
+
+    return authors;
+  }
+
+  public async getAuthorsByBatch(
+    bookIds: number[],
+    info: GraphQLResolveInfo,
+  ): Promise<(Author | any)[]> {
+    console.log({ bookIds })
+    const authors = await this.getAllAuthorsByAuthorIds(bookIds, info);
+
+    const mappedResults = this._mapResultToIds(bookIds, authors);
+    return mappedResults;
+  }
+
+  private _mapResultToIds(
+    authorIds: readonly number[],
+    authors: (Author & { books: Book[] })[],
+  ) {
+    return authorIds.map(() => authors || null);
   }
 
   async getAuthorById(
@@ -41,7 +49,7 @@ export class AuthorsService {
       ? graphqlInfoToPrismaSelect(info)
       : undefined;
 
-    const author = await this.authorByIdLoader.load({ id, select });
+    const author = await this.authorsDAL.findAuthorById(id, select);
 
     return author;
   }

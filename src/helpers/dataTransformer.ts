@@ -9,6 +9,7 @@ import * as graphqlFields from 'graphql-fields';
 function graphqlInfoToPrismaSelect<T>(info: GraphQLResolveInfo): T {
   const fields = graphqlFields(info, {}, { processArguments: true });
   const select = buildSelectObject(fields);
+  console.log(JSON.stringify({ fields, select }, null, 2))
   return select as T;
 }
 

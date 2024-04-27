@@ -1,11 +1,25 @@
-import { Resolver, Query, Mutation, Args, Int, Info } from '@nestjs/graphql';
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  Int,
+  Info,
+  Parent,
+  ResolveField,
+} from '@nestjs/graphql';
 import { AuthorModel, AuthorInput } from './authors.model';
 import { AuthorsService } from './authors.service';
 import { GraphQLResolveInfo } from 'graphql';
+import { BookModel } from 'src/books/books.model';
+import { DataloaderService } from 'src/dataloader/dataloader.service';
 
 @Resolver(() => AuthorModel)
 export class AuthorResolver {
-  constructor(private authorService: AuthorsService) {}
+  constructor(
+    private authorService: AuthorsService,
+    private loaderService: DataloaderService,
+  ) {}
 
   @Query(() => AuthorModel, { nullable: true })
   getAuthor(
@@ -14,6 +28,17 @@ export class AuthorResolver {
     info: GraphQLResolveInfo,
   ) {
     return this.authorService.getAuthorById(id, info);
+  }
+
+  @ResolveField('books', () => [BookModel])
+  async getBooks(
+    @Parent() author: AuthorModel,
+    @Info()
+    info: GraphQLResolveInfo,
+  ) {
+    const { id: authorId } = author;
+    const { booksLoader } = this.loaderService.getLoaders(info);
+    return await booksLoader.load(authorId);
   }
 
   @Query(() => [AuthorModel])

@@ -1,5 +1,5 @@
 import { Injectable, Scope } from '@nestjs/common';
-import { Book, Prisma } from '@prisma/client';
+import { Author, Book, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import * as DataLoader from 'dataloader';
 import { BookInput, BookModel } from './books.model';
@@ -19,48 +19,7 @@ type TitleBatchParams = {
 
 @Injectable({ scope: Scope.REQUEST })
 export class BooksService {
-  private bookByIdLoader: DataLoader<BookBatchParams, Book | null>;
-  private booksByTitleLoader: DataLoader<TitleBatchParams, Book[]>;
-
-  constructor(private prisma: PrismaService, private booksDAL: BooksDAL) {
-    this.bookByIdLoader = new DataLoader<BookBatchParams, Book | null>(
-      async (params) => {
-        const ids = params.map((param) => param.id);
-        const select = params[0].select; // Assumes select is consistent across all batched requests
-
-        const books = await this.booksDAL.findBooksByIds(ids, select);
-        const booksMap = new Map(books.map((book) => [book.id, book]));
-        return params.map((param) => booksMap.get(param.id) || null);
-      },
-      {
-        cacheKeyFn: (key) => key,
-      },
-    );
-
-    this.booksByTitleLoader = new DataLoader<TitleBatchParams, Book[]>(
-      async (params) => {
-        const booksByTitleMap = new Map<string, Book[]>();
-
-        for (const param of params) {
-          const books = await this.booksDAL.findBooksByTitle(
-            param.title,
-            param.select,
-          );
-
-          if (booksByTitleMap.has(param.title)) {
-            booksByTitleMap.get(param.title).push(...books);
-          } else {
-            booksByTitleMap.set(param.title, books);
-          }
-        }
-
-        return params.map((param) => booksByTitleMap.get(param.title) || []);
-      },
-      {
-        cacheKeyFn: (key) => key,
-      },
-    );
-  }
+  constructor(private prisma: PrismaService, private booksDAL: BooksDAL) {}
 
   async getBookById(
     id: number,
@@ -69,8 +28,43 @@ export class BooksService {
     const select: Prisma.BookSelect = info
       ? graphqlInfoToPrismaSelect(info)
       : undefined;
-    const book = await this.bookByIdLoader.load({ id, select });
+    const book = await this.booksDAL.getBookById(id, select);
     return book;
+  }
+
+  async getBooksByAuthorId(authorId: number, info: GraphQLResolveInfo) {
+    const select: Prisma.BookSelect = info
+      ? graphqlInfoToPrismaSelect(info)
+      : undefined;
+    const books = await this.booksDAL.getBooksByAuthorId(authorId, select);
+    return books;
+  }
+
+  public async getAllBooksByAuthorIds(
+    authorIds: number[],
+    info: GraphQLResolveInfo,
+  ) {
+    const select: Prisma.BookSelect = info
+      ? graphqlInfoToPrismaSelect(info)
+      : undefined;
+    return await this.booksDAL.getAllBooksByAuthorIds(authorIds, select);
+  }
+
+  public async getAuthorBooksByBatch(
+    authorIds: number[],
+    info: GraphQLResolveInfo,
+  ): Promise<(Book | any)[]> {
+    const books = await this.getAllBooksByAuthorIds(authorIds, info);
+
+    const mappedResults = this._mapResultToIds(authorIds, books);
+    return mappedResults;
+  }
+
+  private _mapResultToIds(
+    authorIds: readonly number[],
+    books: (Book & { authors: Author[] })[],
+  ) {
+    return authorIds.map(() => books || null);
   }
 
   async getBooksByTitle(
@@ -80,7 +74,7 @@ export class BooksService {
     const select: Prisma.BookSelect = info
       ? graphqlInfoToPrismaSelect(info)
       : undefined;
-    const books = await this.booksByTitleLoader.load({ title, select });
+    const books = await this.booksDAL.findBooksByTitle(title, select);
     return books;
   }
 
